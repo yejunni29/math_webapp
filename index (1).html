@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>수직선 위의 편애 — 한국어 텍스트 숫자 선호 검정기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FBFAF5;
+  --grid:#A8C4A2;
+  --grid-soft:#DCE7D8;
+  --ink:#1C2419;
+  --ink-soft:#5A6555;
+  --surplus:#C0392B;
+  --deficit:#35618E;
+  --seal:#B8332A;
+  --rule:#C9D1C2;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Noto Sans KR',system-ui,sans-serif;
+  font-weight:300;
+  line-height:1.7;
+  font-size:15px;
+}
+#app{max-width:1040px;margin:0 auto;padding:0 20px 100px}
+
+/* ---------- 원고지 배경 ---------- */
+body::before{
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background-image:linear-gradient(var(--grid-soft) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid-soft) 1px,transparent 1px);
+  background-size:28px 28px;
+  opacity:.55;
+}
+
+/* ---------- 헤더 ---------- */
+header{padding:72px 0 40px;border-bottom:2px solid var(--ink)}
+.eyebrow{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-soft);margin-bottom:22px;
+}
+h1{
+  font-family:'Nanum Myeongjo',serif;font-weight:800;
+  font-size:clamp(34px,6.4vw,62px);line-height:1.12;letter-spacing:-.02em;
+  margin-bottom:20px;
+}
+h1 em{font-style:normal;color:var(--seal);}
+.thesis{font-size:clamp(15px,2vw,17px);max-width:56ch;color:var(--ink-soft);font-weight:300}
+.stat-strip{
+  display:flex;flex-wrap:wrap;gap:0;margin-top:34px;
+  border-top:1px solid var(--rule);
+}
+.stat{
+  flex:1 1 130px;padding:14px 16px 12px 0;border-right:1px solid var(--rule);
+}
+.stat:last-child{border-right:none}
+.stat b{
+  display:block;font-family:'IBM Plex Mono',monospace;font-weight:600;
+  font-size:21px;letter-spacing:-.01em;
+}
+.stat span{font-size:11px;color:var(--ink-soft);letter-spacing:.04em}
+
+/* ---------- 섹션 ---------- */
+section{padding:52px 0;border-bottom:1px solid var(--rule)}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+.sec-num{
+  font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;
+  color:var(--seal);letter-spacing:.1em;
+}
+h2{font-family:'Nanum Myeongjo',serif;font-weight:700;font-size:clamp(21px,3.2vw,27px);letter-spacing:-.01em}
+.sec-sub{color:var(--ink-soft);font-size:14px;max-width:62ch;margin-bottom:26px}
+
+/* ---------- 컨트롤 ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px}
+.chip{
+  font-family:'IBM Plex Mono',monospace;font-size:12px;
+  padding:7px 13px;border:1px solid var(--rule);background:transparent;
+  color:var(--ink-soft);cursor:pointer;border-radius:0;
+  transition:all .13s;line-height:1.3;text-align:left;
+}
+.chip:hover{border-color:var(--ink-soft)}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip .cnt{opacity:.6;font-size:10.5px;margin-left:5px}
+.chip:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+
+.row{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-end;margin-bottom:8px}
+.field{flex:1 1 210px;min-width:180px}
+.field label{
+  display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;
+  letter-spacing:.09em;color:var(--ink-soft);margin-bottom:7px;text-transform:uppercase;
+}
+input[type=range]{width:100%;accent-color:var(--seal);height:22px}
+.field .val{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:15px}
+.hint{font-size:12px;color:var(--ink-soft);margin-top:4px}
+.hint.warn{color:var(--seal);font-weight:400}
+
+/* ---------- 수직선 그리드 (signature) ---------- */
+.gridwrap{margin-top:8px;overflow-x:auto;padding-bottom:6px}
+table.nums{border-collapse:collapse;font-family:'IBM Plex Mono',monospace}
+table.nums td{
+  width:34px;height:34px;text-align:center;vertical-align:middle;
+  font-size:11px;border:1px solid rgba(168,196,162,.5);
+  cursor:pointer;position:relative;transition:transform .1s;
+}
+table.nums td.out{opacity:.22}
+table.nums td.hit{outline:2.5px solid var(--seal);outline-offset:-2.5px;font-weight:600;z-index:2}
+table.nums td.sel{outline:3px solid var(--ink);outline-offset:-3px;z-index:3}
+table.nums td:hover{transform:scale(1.22);z-index:4}
+.legend{
+  display:flex;align-items:center;gap:11px;margin-top:16px;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);flex-wrap:wrap;
+}
+.bar{width:150px;height:11px;background:linear-gradient(90deg,#35618E,#93AFC9,#FBFAF5,#DFA69F,#C0392B)}
+
+.detail{
+  margin-top:18px;padding:15px 18px;border-left:3px solid var(--seal);
+  background:rgba(168,196,162,.11);font-size:13px;
+}
+.detail .big{font-family:'Nanum Myeongjo',serif;font-size:26px;font-weight:700;margin-right:9px}
+.detail table{border-collapse:collapse;margin-top:9px;font-family:'IBM Plex Mono',monospace;font-size:11.5px}
+.detail td{padding:2px 13px 2px 0;color:var(--ink-soft)}
+.detail td.n{color:var(--ink);font-weight:500}
+
+/* ---------- 차트 ---------- */
+svg{display:block;max-width:100%;height:auto;overflow:visible}
+.axis{stroke:var(--ink);stroke-width:1}
+.tickline{stroke:var(--grid-soft);stroke-width:1}
+.ticktext{font-family:'IBM Plex Mono',monospace;font-size:10px;fill:var(--ink-soft)}
+.axlabel{font-family:'IBM Plex Mono',monospace;font-size:10.5px;fill:var(--ink-soft);letter-spacing:.08em}
+.fitline{stroke:var(--seal);stroke-width:1.6;stroke-dasharray:5 3;fill:none}
+
+/* ---------- 표 ---------- */
+table.res{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:12.5px;margin-top:6px}
+table.res th{
+  text-align:right;padding:9px 10px;border-bottom:1.5px solid var(--ink);
+  font-weight:600;font-size:10.5px;letter-spacing:.07em;color:var(--ink-soft);text-transform:uppercase;
+}
+table.res th:first-child{text-align:left}
+table.res td{text-align:right;padding:9px 10px;border-bottom:1px solid var(--rule)}
+table.res td:first-child{text-align:left;font-family:'Noto Sans KR',sans-serif;font-weight:400}
+.sig{color:var(--seal);font-weight:600}
+.nsig{color:var(--ink-soft)}
+.verdict{font-family:'Noto Sans KR',sans-serif;font-size:11.5px;padding:2px 7px;border:1px solid currentColor}
+.v-yes{color:var(--seal)}
+.v-no{color:var(--ink-soft)}
+
+.design{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.d-item{display:flex;gap:18px;padding:20px 0;border-top:1px solid var(--rule)}
+.d-item:last-child{border-bottom:1px solid var(--rule)}
+.d-num{
+  flex:0 0 34px;height:34px;border:1px solid var(--seal);color:var(--seal);
+  font-family:'Nanum Myeongjo',serif;font-size:15px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.d-body{flex:1}
+.d-body h3{
+  font-family:'Nanum Myeongjo',serif;font-size:18px;font-weight:700;
+  margin-bottom:7px;letter-spacing:-.01em;
+}
+.d-body p{font-size:14px;margin-bottom:8px;max-width:64ch}
+.d-body p:last-child{margin-bottom:0}
+.d-alt{font-size:12.5px!important;color:var(--ink-soft);padding-left:13px;border-left:2px solid var(--grid-soft)}
+.d-alt b{color:var(--ink);font-weight:500}
+.mono{font-family:'IBM Plex Mono',monospace;font-size:12px}
+@media (max-width:640px){.d-item{gap:12px}.d-num{flex-basis:28px;height:28px;font-size:13px}}
+
+.note{
+  font-size:12.5px;color:var(--ink-soft);margin-top:22px;padding-left:15px;
+  border-left:2px solid var(--rule);
+}
+.note b{font-weight:500;color:var(--ink)}
+footer{padding:44px 0 0;font-size:12px;color:var(--ink-soft)}
+footer a{color:var(--seal)}
+@media (max-width:640px){
+  table.nums td{width:28px;height:28px;font-size:10px}
+  header{padding:44px 0 30px}
+  section{padding:38px 0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const DATA = {"cats":["year","month","day","dur_year","dur_day","ordinal","measure","other"],"rows":[[0,16498,16322,3528,385,16491,15165,56965],[0,14587,4655,4292,307,17399,15466,62901],[0,19811,4467,3444,594,9883,12213,39343],[0,19050,4267,2372,237,6575,8277,24858],[0,17065,4592,2098,325,4521,7737,17315],[0,16669,4020,1238,177,3563,6174,12451],[0,17993,4111,1085,320,3031,4331,9904],[0,16842,4148,887,184,2388,4418,11643],[0,17728,4067,730,161,2232,3336,8073],[0,18576,5242,1990,254,2594,5354,11155],[0,16919,4229,486,123,1285,2153,5067],[0,20360,4215,554,129,1193,3198,5697],[0,0,3914,485,128,1191,2024,3458],[0,0,4419,443,158,1202,2075,3089],[0,0,6038,512,195,1183,2815,4026],[0,0,4491,372,131,1096,2651,5910],[0,0,4172,320,139,1173,2085,2606],[0,0,4178,332,110,1087,2673,2776],[0,0,3938,269,128,785,3434,2412],[0,0,4932,847,177,1214,7976,5105],[0,0,4383,231,124,686,3698,2809],[0,0,4168,235,127,620,707,1762],[0,0,4398,226,129,497,738,1997],[0,0,4285,229,137,475,1199,2148],[0,0,5083,347,138,390,1216,2382],[0,0,4406,142,140,365,533,1307],[0,0,4581,134,158,384,486,1186],[0,0,4823,120,123,392,478,1188],[0,0,4352,123,152,319,367,1041],[0,0,5207,675,332,568,2949,3281],[0,0,4152,132,87,300,373,989],[0,0,0,143,5,302,533,2614],[0,0,0,88,5,254,386,1088],[0,0,0,103,4,226,315,863],[0,0,0,88,11,262,711,1086],[0,0,0,86,4,248,393,1008],[0,0,0,92,3,263,359,703],[0,0,0,90,4,262,291,903],[0,0,0,67,3,244,315,676],[0,0,0,296,56,387,1491,2139],[0,0,0,57,6,207,273,642],[0,0,0,78,4,278,312,736],[0,0,0,96,5,252,266,577],[0,0,0,89,3,214,263,561],[0,0,0,83,19,181,592,974],[0,0,0,69,8,188,246,538],[0,0,0,58,3,196,252,664],[0,0,0,78,4,180,302,1117],[0,0,0,64,20,171,200,433],[0,0,0,394,29,314,1932,3067],[0,0,0,49,0,139,212,696],[0,0,0,62,1,136,236,556],[0,0,0,56,3,102,181,456],[0,0,0,47,1,94,224,470],[0,0,0,76,17,98,384,778],[0,0,0,63,5,107,214,441],[0,0,0,60,3,86,196,410],[0,0,0,57,0,105,182,437],[0,0,0,28,2,87,149,398],[0,0,0,286,59,168,1000,1672],[0,0,0,33,4,83,140,437],[0,0,0,39,1,94,145,468],[0,0,0,44,1,78,136,438],[0,0,0,32,5,64,196,1879],[0,0,0,33,5,58,311,533],[0,0,0,31,2,69,134,448],[0,0,0,30,7,87,127,405],[0,0,0,33,1,82,130,462],[0,0,0,34,1,64,111,372],[0,0,0,305,16,118,763,1106],[0,0,0,34,1,73,92,375],[0,0,0,29,5,57,180,769],[0,0,0,46,2,71,135,321],[0,0,0,30,0,56,126,352],[0,0,0,37,8,61,338,574],[0,0,0,15,4,51,148,355],[0,0,0,34,2,124,119,403],[0,0,0,27,2,86,110,372],[0,0,0,40,0,67,88,323],[0,0,0,322,27,86,778,1286],[0,0,0,30,0,43,125,416],[0,0,0,25,2,58,107,427],[0,0,0,38,0,32,112,369],[0,0,0,44,2,50,121,360],[0,0,0,35,2,22,226,436],[0,0,0,36,2,40,98,890],[0,0,0,67,1,49,110,327],[0,0,0,53,1,49,158,578],[0,0,0,51,1,30,116,369],[0,0,0,299,81,58,731,1152],[0,0,0,42,3,44,88,371],[0,0,0,45,1,37,110,457],[0,0,0,40,2,25,90,377],[0,0,0,52,1,38,82,370],[0,0,0,63,2,57,233,817],[0,0,0,50,0,45,146,617],[0,0,0,77,1,36,97,469],[0,0,0,75,0,61,96,902],[0,0,0,77,5,54,148,693],[0,0,0,372,71,435,2389,4448],[0,0,0,8,1,61,80,678],[0,0,0,14,1,36,56,378],[0,0,0,3,1,54,48,699],[0,0,0,17,3,32,44,235],[0,0,0,12,5,47,124,351],[0,0,0,22,0,26,42,359],[0,0,0,13,3,22,47,174],[0,0,0,18,0,26,57,193],[0,0,0,11,0,34,26,206],[0,0,0,20,1,32,168,411],[0,0,0,11,3,43,43,222],[0,0,0,5,2,26,33,209],[0,0,0,10,3,26,47,251],[0,0,0,9,3,20,60,176],[0,0,0,15,0,22,60,192],[0,0,0,17,2,23,37,188],[0,0,0,13,0,20,31,155],[0,0,0,10,0,19,34,135],[0,0,0,9,1,20,30,263],[0,0,0,38,13,45,372,616],[0,0,0,14,0,22,27,146],[0,0,0,10,1,27,43,118],[0,0,0,9,0,22,37,182],[0,0,0,9,4,27,15,128],[0,0,0,25,1,23,90,218],[0,0,0,15,1,30,25,121],[0,0,0,8,0,25,40,137],[0,0,0,8,0,20,57,451],[0,0,0,11,0,28,24,125],[0,0,0,41,2,29,173,363],[0,0,0,6,0,32,24,114],[0,0,0,18,4,19,23,123],[0,0,0,14,0,16,28,168],[0,0,0,7,0,28,29,105],[0,0,0,21,2,16,55,190],[0,0,0,13,0,17,28,124],[0,0,0,7,2,28,31,81],[0,0,0,11,1,19,25,123],[0,0,0,10,0,19,16,74],[0,0,0,29,1,29,154,241],[0,0,0,19,2,15,23,89],[0,0,0,9,0,9,12,103],[0,0,0,13,1,17,27,113],[0,0,0,4,0,14,30,142],[0,0,0,8,1,14,54,153],[0,0,0,15,1,14,27,89],[0,0,0,13,1,14,34,83],[0,0,0,12,0,14,31,94],[0,0,0,7,0,10,22,74],[0,0,0,82,8,47,465,645],[0,0,0,12,2,14,17,122],[0,0,0,1,1,11,29,110],[0,0,0,9,1,19,39,102],[0,0,0,16,0,7,23,102],[0,0,0,17,0,14,54,124],[0,0,0,6,3,21,31,100],[0,0,0,12,0,16,24,76],[0,0,0,12,0,18,32,100],[0,0,0,6,0,12,16,68],[0,0,0,18,2,22,140,294],[0,0,0,13,18,15,21,92],[0,0,0,12,1,17,21,98],[0,0,0,17,0,13,26,103],[0,0,0,16,0,14,16,108],[0,0,0,8,1,17,35,139],[0,0,0,5,0,12,16,116],[0,0,0,11,0,13,24,102],[0,0,0,18,0,11,23,107],[0,0,0,12,1,14,16,88],[0,0,0,18,3,11,91,227],[0,0,0,5,0,11,18,92],[0,0,0,10,0,12,30,88],[0,0,0,9,0,5,24,81],[0,0,0,18,0,10,17,75],[0,0,0,29,2,10,35,134],[0,0,0,17,0,14,26,84],[0,0,0,6,1,17,19,80],[0,0,0,17,0,5,22,89],[0,0,0,18,2,15,9,64],[0,0,0,37,21,18,133,381],[0,0,0,9,1,16,24,100],[0,0,0,4,0,9,25,127],[0,0,0,8,1,11,14,125],[0,0,0,35,13,11,19,90],[0,0,0,24,1,11,32,109],[0,0,0,7,1,10,23,71],[0,0,0,17,2,10,24,93],[0,0,0,22,0,12,25,87],[0,0,0,55,0,12,20,84],[0,0,0,57,2,14,64,133],[0,0,0,20,0,12,20,67],[0,0,0,42,0,14,31,99],[0,0,0,23,1,13,25,70],[0,0,0,39,1,10,17,67],[0,0,0,47,1,6,27,252],[0,0,0,49,0,8,20,60],[0,0,0,22,0,6,17,67],[0,0,0,33,1,11,21,58],[0,0,0,42,1,11,22,73],[0,0,0,213,9,107,844,2116],[0,0,0,22,0,18,12,183],[0,0,0,63,0,31,27,124],[0,0,0,28,1,21,31,144],[0,0,0,52,1,18,25,104],[0,0,0,42,0,15,26,183],[0,0,0,50,0,13,15,93],[0,0,0,58,1,15,14,80],[0,0,0,62,0,10,18,76],[0,0,0,47,0,15,15,179],[0,0,0,40,2,12,42,184],[0,0,0,48,0,11,11,152],[0,0,0,36,0,17,19,141],[0,0,0,17,0,15,14,88],[0,0,0,33,0,19,32,103],[0,0,0,47,0,9,15,108],[0,0,0,15,0,14,19,103],[0,0,0,32,2,15,19,112],[0,0,0,33,2,13,18,57],[0,0,0,44,1,10,29,57],[0,0,0,71,0,17,83,225],[0,0,0,70,0,9,12,145],[0,0,0,47,2,14,21,125],[0,0,0,45,0,11,13,153],[0,0,0,27,1,16,10,93],[0,0,0,20,4,15,40,143],[0,0,0,31,0,12,10,84],[0,0,0,36,0,12,14,66],[0,0,0,30,0,11,15,61],[0,0,0,29,0,12,14,62],[0,0,0,43,0,15,59,165],[0,0,0,15,0,10,14,255],[0,0,0,35,0,14,17,187],[0,0,0,18,1,12,12,220],[0,0,0,37,1,9,17,95],[0,0,0,16,1,11,17,226],[0,0,0,8,0,12,7,63],[0,0,0,49,0,11,6,49],[0,0,0,63,1,12,14,126],[0,0,0,27,0,11,13,86],[0,0,0,30,2,13,98,205],[0,0,0,25,0,18,16,85],[0,0,0,14,1,12,15,53],[0,0,0,18,0,12,10,65],[0,0,0,20,0,9,14,66],[0,0,0,16,1,11,23,51],[0,0,0,26,1,21,14,65],[0,0,0,22,0,16,17,50],[0,0,0,14,0,11,15,49],[0,0,0,33,0,13,9,72],[0,0,0,75,0,22,246,482],[0,0,0,37,0,14,13,119],[0,0,0,35,0,14,10,61],[0,0,0,28,0,17,8,94],[0,0,0,32,0,17,8,47],[0,0,0,32,0,18,19,109],[0,0,0,47,1,15,23,403],[0,0,0,30,0,11,14,79],[0,0,0,44,0,11,12,57],[0,0,0,19,0,10,7,70],[0,0,0,53,6,13,57,133],[0,0,0,17,1,12,8,88],[0,0,0,15,0,15,16,70],[0,0,0,65,0,13,12,50],[0,0,0,72,1,17,8,65],[0,0,0,41,0,15,12,60],[0,0,0,15,1,10,6,59],[0,0,0,8,0,10,10,46],[0,0,0,17,0,11,11,49],[0,0,0,26,0,7,7,64],[0,0,0,37,0,14,60,144],[0,0,0,19,0,11,6,54],[0,0,0,27,1,12,10,65],[0,0,0,17,0,8,8,50],[0,0,0,24,2,8,12,50],[0,0,0,15,1,14,19,73],[0,0,0,25,0,12,7,50],[0,0,0,17,1,10,10,53],[0,0,0,22,0,9,6,40],[0,0,0,19,1,13,11,38],[0,0,0,51,3,12,66,141],[0,0,0,18,0,11,10,70],[0,0,0,10,0,11,9,51],[0,0,0,22,0,10,9,61],[0,0,0,22,5,13,12,48],[0,0,0,23,0,9,18,65],[0,0,0,24,0,8,10,86],[0,0,0,10,0,8,5,51],[0,0,0,12,0,11,8,77],[0,0,0,13,0,8,11,49],[0,0,0,28,0,13,32,96],[0,0,0,41,0,9,8,62],[0,0,0,16,0,11,13,53],[0,0,0,16,0,14,7,58],[0,0,0,16,0,9,15,48],[0,0,0,12,0,9,10,53],[0,0,0,12,0,15,9,37],[0,0,0,29,1,10,15,41],[0,0,0,24,0,14,6,42],[0,0,0,10,1,21,8,34],[0,0,0,127,11,62,694,1520]],"npages":48613,"ntok":1780736,"dec":[["2.0",802],["1.5",640],["2.5",526],["3.1",484],["1.0",475],["3.5",453],["3.0",444],["4.0",359],["1.2",350],["0.5",337],["6.25",323],["1.1",300],["1.6",290],["1.8",256],["4.5",240],["1.4",227],["2.1",213],["1.3",211],["0.1",196],["5.5",191],["2.8",188],["1994.12",188],["2.4",181],["3.2",180],["2.2",179],["5.0",173],["3.3",171],["6.5",169],["5.1",157],["7.5",149],["1.7",146],["4.2",138],["6.0",135],["3.6",132],["10.5",131],["2.3",131],["7.62",130],["0.2",129],["5.6",127],["2.6",124]]};
+</script>
+<script>
+/* ======================= 수치 계산부 ======================= */
+const CATNAME = {
+  year:'연도 1996년', month:'월 3월', day:'일 3월 3일',
+  dur_year:'기간 3년', dur_day:'기간 3일', ordinal:'서수 3번째',
+  measure:'단위 5개·3%', other:'단위 없음'
+};
+const NMAX = DATA.rows.length;
+const NS = Array.from({length:NMAX},(_,i)=>i+1);
+
+function tau(n){let c=0;for(let i=1;i*i<=n;i++)if(n%i===0)c+= (i*i===n?1:2);return c;}
+const TAU = NS.map(tau);
+const isPrime = n=>{if(n<2)return false;for(let i=2;i*i<=n;i++)if(n%i===0)return false;return true;};
+
+function series(sel){
+  const idx = DATA.cats.map((c,i)=>sel.has(c)?i:-1).filter(i=>i>=0);
+  return DATA.rows.map(r=>idx.reduce((s,i)=>s+r[i],0));
+}
+/* 거듭제곱 법칙 log y = -a log n + c 최소제곱 */
+function fitPower(y,hi){
+  let sx=0,sy=0,sxx=0,sxy=0,m=0;
+  for(let i=0;i<hi;i++){ if(y[i]<=0) continue;
+    const x=Math.log(i+1), l=Math.log(y[i]);
+    sx+=x; sy+=l; sxx+=x*x; sxy+=x*l; m++;
+  }
+  if(m<3) return null;
+  const b=(m*sxy-sx*sy)/(m*sxx-sx*sx), c=(sy-b*sx)/m;
+  const resid = y.map((v,i)=> v>0 ? Math.log(v)-(b*Math.log(i+1)+c) : null);
+  return {alpha:-b, c, resid, m};
+}
+/* 가우스-조던 역행렬 */
+function inv(A){
+  const n=A.length, M=A.map((r,i)=>[...r,...Array.from({length:n},(_,j)=>i===j?1:0)]);
+  for(let i=0;i<n;i++){
+    let p=i; for(let r=i+1;r<n;r++) if(Math.abs(M[r][i])>Math.abs(M[p][i])) p=r;
+    if(Math.abs(M[p][i])<1e-12) return null;
+    [M[i],M[p]]=[M[p],M[i]];
+    const d=M[i][i]; for(let j=0;j<2*n;j++) M[i][j]/=d;
+    for(let r=0;r<n;r++){ if(r===i) continue;
+      const f=M[r][i]; if(!f) continue;
+      for(let j=0;j<2*n;j++) M[r][j]-=f*M[i][j];
+    }
+  }
+  return M.map(r=>r.slice(n));
+}
+/* 다중회귀 + 표준오차 */
+function ols(X,y){
+  const k=X[0].length, n=X.length;
+  const XtX=Array.from({length:k},()=>Array(k).fill(0));
+  const Xty=Array(k).fill(0);
+  for(let i=0;i<n;i++){
+    for(let a=0;a<k;a++){ Xty[a]+=X[i][a]*y[i];
+      for(let b=0;b<k;b++) XtX[a][b]+=X[i][a]*X[i][b]; }
+  }
+  const XtXi=inv(XtX); if(!XtXi) return null;
+  const beta=XtXi.map(r=>r.reduce((s,v,j)=>s+v*Xty[j],0));
+  let ss=0; const ybar=y.reduce((a,b)=>a+b,0)/n; let sst=0;
+  for(let i=0;i<n;i++){ const p=X[i].reduce((s,v,j)=>s+v*beta[j],0);
+    ss+=(y[i]-p)**2; sst+=(y[i]-ybar)**2; }
+  if(n-k<=0) return null;
+  const s2=ss/(n-k);
+  const se=XtXi.map((row,i)=>Math.sqrt(Math.max(0,s2*row[i])));
+  return {beta,se,t:beta.map((b,i)=>se[i]>0?b/se[i]:0),r2:1-ss/sst,n,k};
+}
+
+/* ======================= 상태 ======================= */
+const S = {
+  sel:new Set(['dur_year','dur_day','measure','other']),
+  hi:110, digit:'4', hyp:'m10', selected:null, cols:10
+};
+const HYPS = {
+  m10:{label:'10의 배수',      f:n=>n%10===0},
+  m5 :{label:'5의 배수',       f:n=>n%5===0},
+  m2 :{label:'짝수',           f:n=>n%2===0},
+  m12:{label:'12의 배수',      f:n=>n%12===0},
+  m25:{label:'25의 배수',      f:n=>n%25===0},
+  tau:{label:'약수 8개 이상',  f:n=>tau(n)>=8},
+  pow:{label:'2의 거듭제곱',   f:n=>(n&(n-1))===0},
+  pri:{label:'소수',           f:n=>isPrime(n)},
+  dig:{label:"자릿수 포함",    f:n=>String(n).includes(S.digit)}
+};
+
+/* 색: 잔차 -> 발산 스케일 */
+function col(r){
+  if(r===null||r===undefined||isNaN(r)) return '#EFEFE9';
+  const t=Math.max(-1,Math.min(1,r/1.5));
+  if(t>=0){ const a=t; return mix([251,250,245],[192,57,43],Math.pow(a,.75)); }
+  const a=-t; return mix([251,250,245],[53,97,142],Math.pow(a,.75));
+}
+function mix(a,b,t){return `rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')})`;}
+function fmt(x,d=3){return x===null||isNaN(x)?'—':(x>=0?'+':'')+x.toFixed(d);}
+function comma(x){return x.toLocaleString('ko-KR');}
+
+/* ======================= 계산 ======================= */
+function compute(){
+  const y=series(S.sel);
+  const T=y.reduce((a,b)=>a+b,0);
+  const rec=Math.min(NMAX,Math.max(10,Math.floor(Math.sqrt(T/49))));
+  const hi=Math.min(S.hi,NMAX);
+  const fit=fitPower(y,hi);
+  return {y,T,rec,hi,fit};
+}
+function regression(fit,hi){
+  const X=[],yy=[];
+  for(let i=0;i<hi;i++){
+    const r=fit.resid[i]; if(r===null) continue;
+    const n=i+1;
+    X.push([ n%10===0?1:0,
+             (n%5===0&&n%10!==0)?1:0,
+             (n%2===0&&n%5!==0)?1:0,
+             TAU[i],
+             String(n).includes(S.digit)?1:0,
+             1 ]);
+    yy.push(r);
+  }
+  return {res:ols(X,yy),labels:['10의 배수','5의 배수 (10 제외)','짝수 (5의 배수 제외)','약수 개수 τ(n)',`숫자 '${S.digit}' 포함`,'상수항']};
+}
+
+/* ======================= 렌더 ======================= */
+function render(){
+  const {y,T,rec,hi,fit}=compute();
+  const app=document.getElementById('app');
+  const over = S.hi>rec;
+
+  /* --- 헤더 --- */
+  let h=`<header>
+    <div class="eyebrow">한국어 위키백과 · 문서 ${comma(DATA.npages)}개 · 숫자 ${comma(DATA.ntok)}개</div>
+    <h1>수직선 위의<br><em>편애</em></h1>
+    <p class="thesis">사람은 아무 수나 똑같이 쓰지 않는다. 어떤 수는 유난히 자주 나타난다.
+    이 도구는 그 편중이 <b>무엇 때문인지</b>를 가려낸다. 약수가 많아서인가, 10진법 때문인가,
+    아니면 특정 숫자를 피하는 것인가. 가설을 켜고 t값을 보라.</p>
+    <div class="stat-strip">
+      <div class="stat"><b>${comma(T)}</b><span>선택된 숫자 토큰</span></div>
+      <div class="stat"><b>α = ${fit?fit.alpha.toFixed(3):'—'}</b><span>거듭제곱 지수</span></div>
+      <div class="stat"><b>n ≤ ${hi}</b><span>분석 범위</span></div>
+      <div class="stat"><b>${rec}</b><span>권장 상한 √(T/49)</span></div>
+    </div>
+  </header>`;
+
+  /* --- 1. 무엇을 셀 것인가 --- */
+  h+=`<section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>무엇을 셀 것인가</h2></div>
+    <p class="sec-sub">숫자라고 다 같은 숫자가 아니다. "1996년"의 1996은 연도를 가리키는 이름표이지
+    개수가 아니다. 세는 대상을 바꾸면 결론도 바뀌는지 확인하라.</p>
+    <div class="chips">`;
+  DATA.cats.forEach(c=>{
+    const tot=DATA.rows.reduce((s,r)=>s+r[DATA.cats.indexOf(c)],0);
+    h+=`<button class="chip ${S.sel.has(c)?'on':''}" data-cat="${c}">${CATNAME[c]}<span class="cnt">${comma(tot)}</span></button>`;
+  });
+  h+=`</div>
+    <div class="row">
+      <div class="field">
+        <label>분석 범위 상한 n</label>
+        <input type="range" id="hi" min="20" max="${NMAX}" value="${S.hi}">
+        <div class="val">n ≤ ${hi}</div>
+        <div class="hint ${over?'warn':''}">${over
+          ? `표본이 뒷받침하는 상한은 ${rec}. 지금은 그보다 넓어서 큰 수의 잔차가 불안정하다.`
+          : `표본이 뒷받침하는 상한 ${rec} 안쪽이다.`}</div>
+      </div>
+      <div class="field">
+        <label>그리드 열 수</label>
+        <input type="range" id="cols" min="6" max="16" value="${S.cols}">
+        <div class="val">${S.cols}열</div>
+        <div class="hint">10열로 두면 10진법 구조가 세로줄로 드러난다.</div>
+      </div>
+    </div>
+  </section>`;
+
+  /* --- 2. 기준선 --- */
+  h+=`<section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>기준선을 먼저 걷어낸다</h2></div>
+    <p class="sec-sub">작은 수가 자주 나오는 건 선호가 아니다. 쓸 일이 많을 뿐이다.
+    빈도는 대체로 n<sup>−α</sup>를 따르므로, 이 추세를 뺀 <b>나머지</b>가 선호의 신호다.</p>
+    ${chartLogLog(y,fit,hi)}
+    <div class="note">잔차 정의: <b>R(n) = log(실제 빈도) − log(기준선 예측)</b>.
+    R(n)&gt;0이면 기준선보다 자주, &lt;0이면 덜 나타난다는 뜻이다.</div>
+  </section>`;
+
+  /* --- 3. 수직선 (signature) --- */
+  const hyp=HYPS[S.hyp];
+  h+=`<section>
+    <div class="sec-head"><span class="sec-num">03</span><h2>수직선을 펼쳐놓기</h2></div>
+    <p class="sec-sub">1부터 ${NMAX}까지를 격자에 늘어놓고 잔차로 칠했다.
+    가설을 고르면 그 가설이 지목하는 수에 테두리가 생긴다.
+    테두리가 붉은 칸에만 걸리면 그 가설은 맞는 것이고, 흩어져 있으면 틀린 것이다.</p>
+    <div class="chips">`;
+  Object.entries(HYPS).forEach(([k,v])=>{
+    const lab = k==='dig' ? `숫자 '${S.digit}' 포함` : v.label;
+    h+=`<button class="chip ${S.hyp===k?'on':''}" data-hyp="${k}">${lab}</button>`;
+  });
+  h+=`</div>`;
+  if(S.hyp==='dig'){
+    h+=`<div class="chips" style="margin-top:-8px">`;
+    '0123456789'.split('').forEach(d=>{
+      h+=`<button class="chip ${S.digit===d?'on':''}" data-digit="${d}" style="min-width:38px;text-align:center">${d}</button>`;
+    });
+    h+=`</div>`;
+  }
+  h+=numberGrid(fit,hi,hyp)+`
+    <div class="legend">
+      <span>적게 나타남</span><span class="bar"></span><span>자주 나타남</span>
+      <span style="margin-left:14px">−1.5 → 0 → +1.5</span>
+      <span style="margin-left:14px">흐린 칸 = 분석 범위 밖</span>
+    </div>
+    ${detailBox(y,fit)}
+  </section>`;
+
+  /* --- 4. 검정 --- */
+  h+=`<section>
+    <div class="sec-head"><span class="sec-num">04</span><h2>가설을 세워 검정하기</h2></div>
+    <p class="sec-sub">눈으로 보는 것으로는 부족하다. 여러 특징이 겹쳐 있기 때문이다
+    (예: 10의 배수는 전부 짝수다). 다중회귀로 각 특징의 고유한 몫을 분리한다.
+    <b>|t| &lt; 2 이면 그 특징은 0과 구별되지 않는다.</b></p>
+    ${regTable(fit,hi)}
+    ${twoSample(fit,hi,hyp)}
+  </section>`;
+
+  /* --- 5. 설계 의도 --- */
+  h+=`<section>
+    <div class="sec-head"><span class="sec-num">05</span><h2>이 도구는 왜 이렇게 만들어졌는가</h2></div>
+    <p class="sec-sub">화면에 보이는 네 가지 장치는 전부 특정한 실패를 막으려고 넣은 것이다.
+    각각이 어떤 함정에 대응하는지 밝혀 둔다.</p>
+
+    <div class="design">
+      <div class="d-item">
+        <div class="d-num">가</div>
+        <div class="d-body">
+          <h3>빈도가 아니라 잔차를 본다</h3>
+          <p>3이 200보다 자주 나오는 건 선호가 아니다. 작은 수는 쓸 일이 많을 뿐이다.
+          그래서 n<sup>−α</sup> 추세를 먼저 적합하고 그 나머지만 신호로 삼는다.</p>
+          <p class="d-alt"><b>택하지 않은 대안 —</b> 균등분포와 비교하기.
+          벤포드 법칙이 이미 비균등을 예측하므로, 균등분포에서 벗어난다는 사실만으로는
+          아무것도 증명하지 못한다.</p>
+        </div>
+      </div>
+
+      <div class="d-item">
+        <div class="d-num">나</div>
+        <div class="d-body">
+          <h3>숫자를 유형으로 나눈다</h3>
+          <p>"1996년"의 1996은 무언가를 센 수가 아니라 이름표다.
+          실제로 이 자료에서 달력 숫자가 <b>전체의 48%</b>였다.
+          유형을 켜고 끌 수 있게 만든 것은, 어떤 유형을 쓰느냐에 따라
+          결론이 뒤집히는지 독자가 직접 확인하게 하기 위해서다.</p>
+          <p class="d-alt"><b>한계 —</b> 유형 분류는 숫자 뒤에 오는 조사와 단위를 보고
+          규칙으로 판정한다. "3월 3일"과 "3일 동안"은 앞 글자로 갈랐지만 완전하지 않다.</p>
+        </div>
+      </div>
+
+      <div class="d-item">
+        <div class="d-num">다</div>
+        <div class="d-body">
+          <h3>눈이 아니라 회귀로 판정한다</h3>
+          <p>10의 배수는 전부 짝수이고 전부 5의 배수다. 격자에서 붉게 보인다는 것만으로는
+          어느 특징 때문인지 알 수 없다. 다중회귀는 다른 특징을 고정한 채 각 특징의
+          고유한 몫을 떼어낸다.</p>
+          <p class="d-alt"><b>확인 방법 —</b> 04의 회귀표 t와 그 아래 단순 비교 t가
+          어긋난다면, 그 특징이 다른 특징에 업혀 있다는 뜻이다.</p>
+        </div>
+      </div>
+
+      <div class="d-item">
+        <div class="d-num">라</div>
+        <div class="d-body">
+          <h3>분석 범위에 경고를 띄운다</h3>
+          <p>빈도는 포아송 계수이므로 상대오차가 1/√N이다.
+          기준선을 정하는 것은 자주 나오는 라운드 넘버가 아니라 97, 113 같은
+          심심한 수들인데, 이들이 가장 희소하다. 상대오차 18% 이하를 요구하면
+          <b>n ≤ √(T/49)</b>가 나온다.</p>
+          <p class="d-alt"><b>이 경고가 생긴 이유 —</b> 제작 과정에서 실제로 이 선을 넘겨
+          n≤300으로 회귀를 돌린 적이 있다. 그때는 <span class="mono">'4' 포함</span>이
+          t=−2.5로 유의하게 나와 숫자 4를 기피한다는 결론이 나왔다.
+          정당한 범위인 n≤110으로 줄이자 t=−1.7이 되어 유의성이 사라졌다.
+          위 슬라이더를 300까지 올리면 이 오류를 그대로 재현할 수 있다.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>이 도구가 하지 못하는 것</b> — 위키백과는 문어체 백과사전이므로,
+      아파트 층수나 가격처럼 사람이 수를 <i>고르는</i> 장면이 없다.
+      회피 성향이 있더라도 이 자료에서는 관측되지 않을 수 있다.
+      또한 자료가 덤프의 일부(문서 ${comma(DATA.npages)}개)이고,
+      아라비아 숫자만 세므로 "열두 번" 같은 고유어 수사는 빠져 있다.
+    </div>
+  </section>`;
+
+  h+=`<footer>
+    자료: 한국어 위키백과 덤프 <span style="font-family:'IBM Plex Mono',monospace">kowiki-latest-pages-articles2.xml-p82408p253794</span> (2026-08-04 스냅샷),
+    일반 문서 ${comma(DATA.npages)}개에서 추출.<br>
+    숫자 유형은 뒤따르는 조사·단위로 자동 분류했다. 규칙 기반이므로 오분류가 있다.
+  </footer>`;
+
+  app.innerHTML=h;
+  bind();
+}
+
+/* --- log-log 산점도 --- */
+function chartLogLog(y,fit,hi){
+  const W=880,H=300,P={l:52,r:16,t:14,b:40};
+  if(!fit) return '<p class="hint">데이터가 부족하다. 위에서 유형을 더 선택하라.</p>';
+  const xs=n=>P.l+(Math.log(n)/Math.log(NMAX))*(W-P.l-P.r);
+  const maxY=Math.max(...y.filter(v=>v>0));
+  const ys=v=>P.t+(1-Math.log(v)/Math.log(maxY))*(H-P.t-P.b);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="빈도 로그-로그 산점도">`;
+  [1,10,100].forEach(t=>{ if(t<=NMAX){
+    s+=`<line class="tickline" x1="${xs(t)}" y1="${P.t}" x2="${xs(t)}" y2="${H-P.b}"/>
+        <text class="ticktext" x="${xs(t)}" y="${H-P.b+15}" text-anchor="middle">${t}</text>`;}});
+  [1,10,100,1000,10000,100000].forEach(t=>{ if(t<=maxY){
+    s+=`<line class="tickline" x1="${P.l}" y1="${ys(t)}" x2="${W-P.r}" y2="${ys(t)}"/>
+        <text class="ticktext" x="${P.l-7}" y="${ys(t)+3}" text-anchor="end">${t>=1000?(t/1000)+'k':t}</text>`;}});
+  s+=`<line class="axis" x1="${P.l}" y1="${H-P.b}" x2="${W-P.r}" y2="${H-P.b}"/>
+      <line class="axis" x1="${P.l}" y1="${P.t}" x2="${P.l}" y2="${H-P.b}"/>`;
+  const x1=1,x2=NMAX;
+  const p1=Math.exp(fit.c)*Math.pow(x1,-fit.alpha), p2=Math.exp(fit.c)*Math.pow(x2,-fit.alpha);
+  s+=`<line class="fitline" x1="${xs(x1)}" y1="${ys(p1)}" x2="${xs(x2)}" y2="${ys(p2)}"/>`;
+  y.forEach((v,i)=>{ if(v<=0) return;
+    const n=i+1, inr=n<=hi;
+    s+=`<circle cx="${xs(n).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="${inr?2.7:2}"
+        fill="${inr?col(fit.resid[i]):'#D8DAD2'}" stroke="${inr?'rgba(28,36,25,.35)':'none'}" stroke-width=".6"/>`;});
+  s+=`<text class="axlabel" x="${W-P.r}" y="${H-6}" text-anchor="end">n (로그)</text>
+      <text class="axlabel" x="${P.l-40}" y="${P.t+4}" >빈도</text>
+      <text class="axlabel" x="${xs(NMAX)-8}" y="${ys(p2)-9}" text-anchor="end" fill="#B8332A">기준선 n^−${fit.alpha.toFixed(2)}</text>
+      </svg>`;
+  return s;
+}
+
+/* --- 숫자 격자 --- */
+function numberGrid(fit,hi,hyp){
+  if(!fit) return '';
+  let s='<div class="gridwrap"><table class="nums"><tbody><tr>';
+  NS.forEach((n,i)=>{
+    if(i>0 && i%S.cols===0) s+='</tr><tr>';
+    const r=fit.resid[i], out=n>hi, hit=hyp.f(n);
+    const c=out?'#F0F0EA':col(r);
+    const lum = out?1:(r!==null&&r>0.85?0:1);
+    s+=`<td data-n="${n}" class="${out?'out':''} ${hit?'hit':''} ${S.selected===n?'sel':''}"
+        style="background:${c};color:${lum?'#1C2419':'#FBFAF5'}" title="n=${n}  R=${fmt(r)}">${n}</td>`;
+  });
+  s+='</tr></tbody></table></div>';
+  return s;
+}
+
+/* --- 선택한 수 상세 --- */
+function detailBox(y,fit){
+  const n=S.selected;
+  if(!n) return `<div class="detail" style="border-color:var(--rule);color:var(--ink-soft)">
+    격자에서 숫자를 누르면 그 수의 내역이 여기 나온다.</div>`;
+  const i=n-1, row=DATA.rows[i], tot=row.reduce((a,b)=>a+b,0);
+  let s=`<div class="detail"><span class="big">${n}</span>
+    잔차 R = <b>${fmt(fit?fit.resid[i]:null)}</b> · 선택된 유형 빈도 ${comma(y[i])} · 전체 ${comma(tot)}
+    <table><tr>`;
+  DATA.cats.forEach((c,j)=>{ s+=`<td>${CATNAME[c].split(' ')[0]}<br><span class="n">${comma(row[j])}</span></td>`; });
+  s+=`</tr></table>
+   <div style="margin-top:9px;font-size:12px;color:var(--ink-soft)">
+   약수 ${TAU[i]}개 · ${isPrime(n)?'소수':'합성수'} · 10으로 나눈 나머지 ${n%10}</div></div>`;
+  return s;
+}
+
+/* --- 회귀표 --- */
+function regTable(fit,hi){
+  if(!fit) return '';
+  const {res,labels}=regression(fit,hi);
+  if(!res) return '<p class="hint">회귀를 계산할 수 없다. 범위를 넓혀라.</p>';
+  let s=`<table class="res"><thead><tr><th>특징</th><th>계수</th><th>표준오차</th><th>t</th><th>판정</th></tr></thead><tbody>`;
+  labels.forEach((l,i)=>{
+    const t=res.t[i], sig=Math.abs(t)>2;
+    s+=`<tr><td>${l}</td><td>${fmt(res.beta[i],4)}</td><td>${res.se[i].toFixed(4)}</td>
+        <td class="${sig?'sig':'nsig'}">${fmt(t,2)}</td>
+        <td><span class="verdict ${sig?'v-yes':'v-no'}">${sig?'유의':'구별 안 됨'}</span></td></tr>`;
+  });
+  s+=`</tbody></table>
+  <div class="note">관측 ${res.n}개 · R² = ${res.r2.toFixed(3)} ·
+  <b>|t| &gt; 2</b>를 유의 기준으로 삼았다(대략 5% 수준).
+  R²가 1에 못 미치는 만큼은 이 다섯 특징으로 설명되지 않는 부분이다.</div>`;
+  return s;
+}
+
+/* --- 두 집단 비교 --- */
+function twoSample(fit,hi,hyp){
+  if(!fit) return '';
+  const A=[],B=[];
+  for(let i=0;i<hi;i++){ const r=fit.resid[i]; if(r===null) continue;
+    (hyp.f(i+1)?A:B).push(r); }
+  if(A.length<2||B.length<2) return '';
+  const mean=a=>a.reduce((x,z)=>x+z,0)/a.length;
+  const vr=a=>{const m=mean(a);return a.reduce((s,z)=>s+(z-m)**2,0)/(a.length-1);};
+  const mA=mean(A),mB=mean(B);
+  const se=Math.sqrt(vr(A)/A.length+vr(B)/B.length);
+  const t=(mA-mB)/se;
+  const lab = S.hyp==='dig' ? `숫자 '${S.digit}' 포함` : hyp.label;
+  return `<div class="note" style="border-left-color:var(--seal)">
+    <b>단독 비교 — ${lab}</b><br>
+    해당하는 수 ${A.length}개의 평균 잔차 <b>${fmt(mA)}</b>,
+    나머지 ${B.length}개는 <b>${fmt(mB)}</b>.
+    차이 ${fmt(mA-mB)}, t = <b class="${Math.abs(t)>2?'sig':'nsig'}">${fmt(t,2)}</b>.<br>
+    <span style="font-size:12px">이 값은 다른 특징을 통제하지 않은 것이다.
+    위 회귀표의 t와 어긋난다면, 그 특징이 다른 특징과 겹쳐 있다는 뜻이다.</span></div>`;
+}
+
+/* ======================= 이벤트 ======================= */
+function bind(){
+  document.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{
+    const c=b.dataset.cat;
+    S.sel.has(c)?S.sel.delete(c):S.sel.add(c);
+    if(S.sel.size===0) S.sel.add(c);
+    render();
+  });
+  document.querySelectorAll('[data-hyp]').forEach(b=>b.onclick=()=>{S.hyp=b.dataset.hyp;render();});
+  document.querySelectorAll('[data-digit]').forEach(b=>b.onclick=()=>{S.digit=b.dataset.digit;render();});
+  document.querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{
+    const n=+b.dataset.n; S.selected = S.selected===n?null:n; render();});
+  const hi=document.getElementById('hi');
+  if(hi) hi.oninput=e=>{S.hi=+e.target.value;render();
+    const el=document.getElementById('hi'); if(el){el.focus();}};
+  const cl=document.getElementById('cols');
+  if(cl) cl.oninput=e=>{S.cols=+e.target.value;render();
+    const el=document.getElementById('cols'); if(el){el.focus();}};
+}
+render();
+</script>
+</body>
+</html>
